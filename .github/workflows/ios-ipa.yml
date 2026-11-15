@@ -1,0 +1,50 @@
+name: Build iOS Unsigned IPA
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-ios-ipa:
+    name: Build LocketStudio.ipa (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Dart & Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate 1080x1080 PNG frames
+        run: dart run tool/generate_frames.dart
+
+      - name: Run Flutter analyzer & unit tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build iOS release bundle (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package LocketStudio-unsigned.ipa
+        run: |
+          mkdir -p build/ios/ipa_payload/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa_payload/Payload/Runner.app
+          cd build/ios/ipa_payload
+          zip -r -9 LocketStudio-unsigned.ipa Payload
+
+      - name: Upload LocketStudio-unsigned.ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocketStudio-iOS-IPA
+          path: build/ios/ipa_payload/LocketStudio-unsigned.ipa
+          retention-days: 30

@@ -1,0 +1,26 @@
+workflows:
+  ios-unsigned-ipa:
+    name: Locket Studio iOS Unsigned IPA
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Generate 1080x1080 PNG frames
+        script: dart run tool/generate_frames.dart
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Build iOS release (no codesign)
+        script: flutter build ios --release --no-codesign
+      - name: Package LocketStudio-unsigned.ipa
+        script: |
+          mkdir -p build/ios/ipa_payload/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa_payload/Payload/Runner.app
+          cd build/ios/ipa_payload
+          zip -r -9 LocketStudio-unsigned.ipa Payload
+    artifacts:
+      - build/ios/ipa_payload/LocketStudio-unsigned.ipa
