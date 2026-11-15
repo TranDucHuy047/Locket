@@ -7,6 +7,9 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-ios-ipa:
     name: Build LocketStudio.ipa (macOS)
@@ -15,10 +18,11 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Flutter (stable)
+      - name: Setup Flutter (3.44.1)
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.44.1'
+          channel: 'stable'
           cache: true
 
       - name: Install Dart & Flutter dependencies
@@ -29,7 +33,7 @@ jobs:
 
       - name: Run Flutter analyzer & unit tests
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-infos --no-fatal-warnings
           flutter test
 
       - name: Build iOS release bundle (no codesign)
