@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -27,6 +28,9 @@ class ImageInputService {
   }
 
   Future<String?> cropToSquare(String sourcePath) async {
+    if (kIsWeb) {
+      return sourcePath;
+    }
     try {
       final CroppedFile? cropped = await _cropper.cropImage(
         sourcePath: sourcePath,

@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/studio_models.dart';
 import '../services/export_handoff_service.dart';
 import '../services/image_input_service.dart';
+import '../utils/platform_helper.dart';
 import '../widgets/studio_canvas.dart';
 
 class StudioHomeScreen extends StatefulWidget {
@@ -336,31 +337,45 @@ class _StudioHomeScreenState extends State<StudioHomeScreen> {
     }
   }
 
-  Future<void> _saveToAlbumAndOpenLocket() async {
+  Rect? _originFromContext(BuildContext? ctx) {
+    final RenderObject? box = ctx?.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
+  }
+
+  Future<void> _saveToAlbumAndOpenLocket([BuildContext? buttonContext]) async {
     HapticFeedback.mediumImpact();
+    final Rect? origin = _originFromContext(buttonContext);
     try {
       final ExportResult? result = await _captureCanvas();
       if (result == null) return;
-      await _exportService.saveToGallery(result.file);
+      await _exportService.saveToGallery(result, sharePositionOrigin: origin);
       final bool openedDirect = await _exportService.openLocketApp();
       _showSnack(
-        openedDirect
-            ? 'Đã lưu ảnh 1080×1080 (${result.sizeInKb.toStringAsFixed(0)} KB) & mở Locket!'
-            : 'Đã lưu vào Album (${result.sizeInKb.toStringAsFixed(0)} KB). Đang mở trang Locket.',
+        kIsWeb
+            ? 'Đã xuất ảnh 1080×1080 (${result.sizeInKb.toStringAsFixed(0)} KB). Chọn "Lưu hình ảnh" rồi mở Locket!'
+            : (openedDirect
+                ? 'Đã lưu ảnh 1080×1080 (${result.sizeInKb.toStringAsFixed(0)} KB) & mở Locket!'
+                : 'Đã lưu vào Album (${result.sizeInKb.toStringAsFixed(0)} KB). Đang mở trang Locket.'),
       );
     } catch (e) {
       _showSnack('Lỗi xuất hoặc mở Locket: $e', isError: true);
     }
   }
 
-  Future<void> _saveOnlyToAlbum() async {
+  Future<void> _saveOnlyToAlbum([BuildContext? buttonContext]) async {
     HapticFeedback.mediumImpact();
+    final Rect? origin = _originFromContext(buttonContext);
     try {
       final ExportResult? result = await _captureCanvas();
       if (result == null) return;
-      await _exportService.saveToGallery(result.file);
+      await _exportService.saveToGallery(result, sharePositionOrigin: origin);
       _showSnack(
-        'Đã lưu ${result.width}×${result.height} (${result.sizeInKb.toStringAsFixed(0)} KB) vào Album "Locket Studio"!',
+        kIsWeb
+            ? 'Đã xuất ${result.width}×${result.height} (${result.sizeInKb.toStringAsFixed(0)} KB) — chọn "Lưu hình ảnh" để lưu vào Ảnh!'
+            : 'Đã lưu ${result.width}×${result.height} (${result.sizeInKb.toStringAsFixed(0)} KB) vào Album "Locket Studio"!',
       );
     } catch (e) {
       _showSnack('Lỗi lưu vào Album: $e', isError: true);
@@ -369,17 +384,13 @@ class _StudioHomeScreenState extends State<StudioHomeScreen> {
 
   Future<void> _shareViaSheet([BuildContext? buttonContext]) async {
     HapticFeedback.mediumImpact();
-    Rect? origin;
-    final RenderObject? box = buttonContext?.findRenderObject();
-    if (box is RenderBox && box.hasSize) {
-      origin = box.localToGlobal(Offset.zero) & box.size;
-    }
+    final Rect? origin = _originFromContext(buttonContext);
 
     try {
       final ExportResult? result = await _captureCanvas();
       if (result == null) return;
       await _exportService.shareViaSystemSheet(
-        result.file,
+        result,
         sharePositionOrigin: origin,
       );
     } catch (e) {
@@ -925,7 +936,7 @@ class _StudioHomeScreenState extends State<StudioHomeScreen> {
 
   Widget _buildFrameThumbnail(FrameAsset frame) {
     if (frame.customFilePath != null) {
-      return Image.file(File(frame.customFilePath!), fit: BoxFit.cover);
+      return buildPlatformImage(frame.customFilePath!, fit: BoxFit.cover);
     }
     if (frame.assetPath != null) {
       return Stack(
@@ -1231,33 +1242,44 @@ class _StudioHomeScreenState extends State<StudioHomeScreen> {
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: FilledButton.icon(
-            onPressed: _isBusy ? null : _saveToAlbumAndOpenLocket,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFFB800),
-              foregroundColor: const Color(0xFF141418),
-            ),
-            icon: _isBusy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.rocket_launch_rounded),
-            label: const Text(
-              'Lưu vào Album & Mở Locket',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
+          child: Builder(
+            builder: (BuildContext buttonContext) {
+              return FilledButton.icon(
+                onPressed: _isBusy
+                    ? null
+                    : () => _saveToAlbumAndOpenLocket(buttonContext),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFB800),
+                  foregroundColor: const Color(0xFF141418),
+                ),
+                icon: _isBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.rocket_launch_rounded),
+                label: const Text(
+                  'Lưu vào Album & Mở Locket',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 10),
         Row(
           children: <Widget>[
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _isBusy ? null : _saveOnlyToAlbum,
-                icon: const Icon(Icons.save_alt_rounded, size: 18),
-                label: const Text('Chỉ lưu Album'),
+              child: Builder(
+                builder: (BuildContext buttonContext) {
+                  return OutlinedButton.icon(
+                    onPressed:
+                        _isBusy ? null : () => _saveOnlyToAlbum(buttonContext),
+                    icon: const Icon(Icons.save_alt_rounded, size: 18),
+                    label: const Text('Chỉ lưu Album'),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 10),

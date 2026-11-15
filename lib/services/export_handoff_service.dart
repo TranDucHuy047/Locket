@@ -1,28 +1,32 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:gal/gal.dart';
 import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/studio_models.dart';
+import '../utils/platform_helper.dart' as platform;
 
 class ExportResult {
   const ExportResult({
-    required this.file,
+    required this.bytes,
+    required this.filename,
+    required this.mimeType,
     required this.width,
     required this.height,
     required this.sizeBytes,
     required this.format,
+    this.filePath,
     this.fellBackToJpeg = false,
   });
 
-  final File file;
+  final Uint8List bytes;
+  final String filename;
+  final String mimeType;
+  final String? filePath;
   final int width;
   final int height;
   final int sizeBytes;
@@ -99,15 +103,19 @@ class ExportHandoffService {
       encodedBytes = _encodeJpegUnderLimit(imageBuffer);
     }
 
-    final Directory tempDir = await getTemporaryDirectory();
-    final String ext = effectiveFormat == ExportFormat.png ? 'png' : 'jpg';
+    final bool isPng = effectiveFormat == ExportFormat.png;
+    final String ext = isPng ? 'png' : 'jpg';
+    final String mimeType = isPng ? 'image/png' : 'image/jpeg';
     final String filename =
         'locket_1080_${DateTime.now().millisecondsSinceEpoch}.$ext';
-    final File outFile = File('${tempDir.path}${Platform.pathSeparator}$filename');
-    await outFile.writeAsBytes(encodedBytes, flush: true);
+    final String? filePath =
+        await platform.writeExportTempFile(encodedBytes, filename);
 
     return ExportResult(
-      file: outFile,
+      bytes: encodedBytes,
+      filename: filename,
+      mimeType: mimeType,
+      filePath: filePath,
       width: targetSizePx,
       height: targetSizePx,
       sizeBytes: encodedBytes.length,
@@ -128,24 +136,33 @@ class ExportHandoffService {
     return result;
   }
 
-  Future<void> saveToGallery(File file) async {
-    bool hasPermission = await Gal.hasPermission(toAlbum: true);
-    if (!hasPermission) {
-      hasPermission = await Gal.requestPermission(toAlbum: true);
-    }
-    if (!hasPermission) {
-      throw StateError('Chưa được cấp quyền lưu ảnh vào Album điện thoại.');
-    }
-    await Gal.putImage(file.path, album: 'Locket Studio');
+  Future<void> saveToGallery(
+    ExportResult result, {
+    Rect? sharePositionOrigin,
+  }) async {
+    await platform.saveExportToGallery(
+      bytes: result.bytes,
+      filename: result.filename,
+      mimeType: result.mimeType,
+      filePath: result.filePath,
+      sharePositionOrigin: sharePositionOrigin,
+    );
   }
 
   Future<void> shareViaSystemSheet(
-    File file, {
+    ExportResult result, {
     Rect? sharePositionOrigin,
   }) async {
+    final XFile xfile = result.filePath != null
+        ? XFile(result.filePath!)
+        : XFile.fromData(
+            result.bytes,
+            name: result.filename,
+            mimeType: result.mimeType,
+          );
     await SharePlus.instance.share(
       ShareParams(
-        files: <XFile>[XFile(file.path)],
+        files: <XFile>[xfile],
         text: 'Locket Studio 1080x1080',
         sharePositionOrigin:
             sharePositionOrigin ?? const Rect.fromLTWH(0, 0, 100, 100),
@@ -166,7 +183,7 @@ class ExportHandoffService {
     }
 
     final Uri storeUri = Uri.parse(
-      Platform.isIOS
+      platform.isApplePlatform
           ? 'https://apps.apple.com/vn/app/locket-widget/id1600525061'
           : 'https://play.google.com/store/apps/details?id=com.locket.Locket',
     );

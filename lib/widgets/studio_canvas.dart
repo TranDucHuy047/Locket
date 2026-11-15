@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../models/studio_models.dart';
+import '../utils/platform_helper.dart';
 
 class StudioCanvas extends StatelessWidget {
   const StudioCanvas({
@@ -124,8 +124,8 @@ class StudioCanvas extends StatelessWidget {
         maxScale: 4.0,
         clipBehavior: Clip.hardEdge,
         child: SizedBox.expand(
-          child: Image.file(
-            File(singleImagePath!),
+          child: buildPlatformImage(
+            singleImagePath!,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => _DemoPhotoArtwork(
               slotIndex: 0,
@@ -234,8 +234,8 @@ class StudioCanvas extends StatelessWidget {
         maxScale: 4.0,
         clipBehavior: Clip.hardEdge,
         child: SizedBox.expand(
-          child: Image.file(
-            File(path),
+          child: buildPlatformImage(
+            path,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => _DemoPhotoArtwork(
               slotIndex: index,
@@ -290,8 +290,8 @@ class StudioCanvas extends StatelessWidget {
 
   Widget _buildFrameOverlay() {
     if (selectedFrame.customFilePath != null) {
-      return Image.file(
-        File(selectedFrame.customFilePath!),
+      return buildPlatformImage(
+        selectedFrame.customFilePath!,
         fit: BoxFit.fill,
       );
     }
@@ -523,8 +523,8 @@ class _InteractiveStickerWidgetState extends State<_InteractiveStickerWidget> {
 
   Widget _buildStickerGraphic() {
     if (widget.item.imagePath != null) {
-      return Image.file(
-        File(widget.item.imagePath!),
+      return buildPlatformImage(
+        widget.item.imagePath!,
         fit: BoxFit.contain,
       );
     }

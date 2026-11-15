@@ -1,0 +1,35 @@
+{
+    "name": "Locket Studio",
+    "short_name": "Locket Studio",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0D0D12",
+    "theme_color": "#0D0D12",
+    "description": "Studio tiền kỳ 1:1 (Photobooth, Khung PNG, Sticker, Caption) dành cho Locket.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
